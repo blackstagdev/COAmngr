@@ -1,0 +1,116 @@
+{% assign require_request = product.metafields.coa.require_request.value %}
+{% assign coa_records_raw = product.metafields.coa.records.value %}
+
+{% if coa_records_raw != blank %}
+  <div class="coa-display-block">
+    <h2 class="coa-title">Testing & COA</h2>
+    
+    {% if require_request == true %}
+      <div class="coa-request-mode">
+        <p>Certificates of Analysis for this product are available upon request.</p>
+        <div id="coa-request-form">
+          <div class="coa-field">
+            <label for="coa-request-email">Email <span aria-hidden="true">*</span></label>
+            <input type="email" id="coa-request-email" value="{% if customer %}{{ customer.email }}{% endif %}" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+          </div>
+          <button type="button" id="coa-request-btn" class="button" data-product-id="{{ product.id }}">Request COA</button>
+          <p id="coa-request-status" style="margin-top:8px;display:none;"></p>
+        </div>
+      </div>
+    {% else %}
+      <div class="coa-view-mode">
+        {% comment %}
+          The metafield value is a JSON array of objects like:
+          [{"id":"abc","imageUrl":"data:image/png;base64,...","analysis_date":"2025-01-01","lot_number":"LOT-123","lab_name":"Lab","notes":"","is_latest":true}]
+          
+          In Liquid, when a JSON metafield is parsed, array items are accessed by index
+          and object properties are accessed directly by key name (not .value).
+        {% endcomment %}
+
+        {% comment %} Find latest COA: first check for is_latest flag, then fall back to first item {% endcomment %}
+        {% assign latest_coa = null %}
+        {% assign latest_index = 0 %}
+        {% assign coa_count = 0 %}
+        
+        {% for coa in coa_records_raw %}
+          {% assign coa_count = coa_count | plus: 1 %}
+          {% if coa.is_latest == true %}
+            {% assign latest_coa = coa %}
+            {% assign latest_index = forloop.index0 %}
+          {% endif %}
+        {% endfor %}
+        
+        {% if latest_coa == null %}
+          {% assign latest_coa = coa_records_raw | first %}
+          {% assign latest_index = 0 %}
+        {% endif %}
+
+        {% if latest_coa %}
+          <div class="coa-latest-card">
+            <h3>Latest COA</h3>
+            <div class="coa-meta">
+              {% if latest_coa.lot_number != blank %}
+                <p><strong>Lot/Batch:</strong> {{ latest_coa.lot_number }}</p>
+              {% endif %}
+              {% if latest_coa.analysis_date != blank %}
+                <p><strong>Date:</strong> {{ latest_coa.analysis_date | date: "%B %d, %Y" }}</p>
+              {% endif %}
+              {% if latest_coa.lab_name != blank %}
+                <p><strong>Lab:</strong> {{ latest_coa.lab_name }}</p>
+              {% endif %}
+            </div>
+            {% if latest_coa.imageUrl != blank %}
+              <button class="button coa-view-btn" data-coa-index="{{ latest_index }}">View Latest COA</button>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if coa_count > 1 %}
+          <details class="coa-history">
+            <summary>View History ({{ coa_count }} records)</summary>
+            <div class="coa-history-list">
+              {% for coa in coa_records_raw %}
+                <div class="coa-history-item">
+                  <span>
+                    {% if coa.lot_number != blank %}{{ coa.lot_number }}{% else %}No Lot{% endif %}
+                    -
+                    {% if coa.analysis_date != blank %}{{ coa.analysis_date | date: "%B %d, %Y" }}{% else %}No Date{% endif %}
+                  </span>
+                  {% if coa.imageUrl != blank %}
+                    <button class="button button--secondary coa-view-btn" data-coa-index="{{ forloop.index0 }}">View</button>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </details>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div id="coa-lightbox" class="coa-lightbox" style="display: none;">
+  <span class="coa-lightbox-close">&times;</span>
+  <button class="coa-lightbox-nav coa-lightbox-prev" aria-label="Previous">&lsaquo;</button>
+  <img class="coa-lightbox-content" id="coa-lightbox-img" width="800" height="1000" alt="Certificate of Analysis">
+  <button class="coa-lightbox-nav coa-lightbox-next" aria-label="Next">&rsaquo;</button>
+</div>
+
+{% comment %} Pass the image URLs to JS as a JSON array so the lightbox can use them {% endcomment %}
+<script type="application/json" id="coa-image-data">
+  [
+    {% for coa in coa_records_raw %}
+      {{ coa.imageUrl | json }}{% unless forloop.last %},{% endunless %}
+    {% endfor %}
+  ]
+</script>
+
+{% schema %}
+{
+  "name": "COA Display",
+  "target": "section",
+  "stylesheet": "coa-manager.css",
+  "javascript": "coa-manager.js",
+  "settings": []
+}
+{% endschema %}

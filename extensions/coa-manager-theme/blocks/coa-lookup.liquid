@@ -1,0 +1,179 @@
+<div class="coa-lookup-container" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+  <h1>Certificate of Analysis Lookup</h1>
+  <p>Search for product certificates by Product Name or Lot Number.</p>
+  
+  <div class="coa-search-form" style="margin-bottom: 2rem; display: flex; gap: 10px;">
+    <input type="text" id="coa-search-input" placeholder="Enter Product Name or Lot/Batch..." style="flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+    <button id="coa-search-btn" class="button">Search</button>
+  </div>
+
+  <div id="coa-search-results">
+    <!-- Results will be injected here via JS from App Proxy -->
+  </div>
+</div>
+
+<div id="coa-lightbox-lookup" class="coa-lightbox" style="display: none;">
+  <span class="coa-lightbox-close">&times;</span>
+  <img class="coa-lightbox-content" id="coa-lightbox-img-lookup" width="800" height="1000" alt="Certificate of Analysis">
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchBtn = document.getElementById('coa-search-btn');
+    const searchInput = document.getElementById('coa-search-input');
+    const resultsContainer = document.getElementById('coa-search-results');
+    const customerId = {{ customer.id | json }};
+    const customerEmail = {{ customer.email | json }};
+    
+    // Lightbox logic
+    const lightbox = document.getElementById('coa-lightbox-lookup');
+    const lightboxImg = document.getElementById('coa-lightbox-img-lookup');
+    const closeBtn = document.querySelector('#coa-lightbox-lookup .coa-lightbox-close');
+
+    const openLightbox = (url) => {
+      lightboxImg.src = url;
+      lightbox.style.display = 'flex';
+    };
+
+    const closeLightbox = () => {
+      lightbox.style.display = 'none';
+      lightboxImg.src = '';
+    };
+
+    closeBtn.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lightbox.style.display === 'flex') closeLightbox();
+    });
+
+    // Allow Enter key to trigger search
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchBtn.click();
+    });
+
+    searchBtn.addEventListener('click', () => {
+      const query = searchInput.value.trim();
+      if (!query) return;
+
+      resultsContainer.innerHTML = '<p>Searching...</p>';
+
+      // Request to App Proxy: /apps/coa-lookup/search -> proxied to our Remix app at /api/search
+      fetch(`/apps/coa-lookup/search?q=${encodeURIComponent(query)}&customerId=${customerId || ''}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Request failed');
+          return res.json();
+        })
+        .then(data => {
+          if (data.results && data.results.length > 0) {
+            // Desktop table
+            let html = '<div class="coa-results-desktop">';
+            html += '<table style="width: 100%; text-align: left; border-collapse: collapse;">';
+            html += '<thead><tr><th style="padding:8px;">Product</th><th style="padding:8px;">Lot/Batch</th><th style="padding:8px;">Date</th><th style="padding:8px;">Lab</th><th style="padding:8px;">Action</th></tr></thead><tbody>';
+            
+            data.results.forEach(item => {
+              html += `<tr style="border-bottom: 1px solid #eee;">`;
+              html += `<td style="padding: 10px 8px;">${item.productTitle}</td>`;
+              html += `<td style="padding: 10px 8px;">${item.lotNumber}</td>`;
+              html += `<td style="padding: 10px 8px;">${item.date}</td>`;
+              html += `<td style="padding: 10px 8px;">${item.labName}</td>`;
+              
+              if (item.requireRequest) {
+                if (customerId && customerEmail) {
+                  html += `<td style="padding: 10px 8px;"><button class="button button--secondary coa-request-btn" data-product-id="${item.productId}" data-product-title="${item.productTitle}">Request COA</button></td>`;
+                } else {
+                  html += `<td style="padding: 10px 8px;"><button class="button button--secondary" disabled title="Please sign in first">Sign in to Request</button></td>`;
+                }
+              } else {
+                html += `<td style="padding: 10px 8px;"><button class="button coa-view-result-btn" data-img-url="${item.imageUrl}">View COA</button></td>`;
+              }
+              html += `</tr>`;
+            });
+            html += '</tbody></table></div>';
+
+            // Mobile cards
+            html += '<div class="coa-results-mobile">';
+            data.results.forEach(item => {
+              html += `<div class="coa-result-card" style="border:1px solid #eee; border-radius:8px; padding:12px; margin-bottom:12px;">`;
+              html += `<p style="font-weight:bold; margin:0 0 4px;">${item.productTitle}</p>`;
+              html += `<p style="margin:2px 0; font-size:0.9em;">Lot: ${item.lotNumber}</p>`;
+              html += `<p style="margin:2px 0; font-size:0.9em;">Date: ${item.date}</p>`;
+              html += `<p style="margin:2px 0 8px; font-size:0.9em;">Lab: ${item.labName}</p>`;
+              if (item.requireRequest) {
+                if (customerId && customerEmail) {
+                  html += `<button class="button button--secondary coa-request-btn" data-product-id="${item.productId}" data-product-title="${item.productTitle}">Request COA</button>`;
+                } else {
+                  html += `<button class="button button--secondary" disabled>Sign in to Request</button>`;
+                }
+              } else {
+                html += `<button class="button coa-view-result-btn" data-img-url="${item.imageUrl}">View COA</button>`;
+              }
+              html += `</div>`;
+            });
+            html += '</div>';
+
+            resultsContainer.innerHTML = html;
+
+            // Attach view handlers
+            document.querySelectorAll('.coa-view-result-btn').forEach(btn => {
+              btn.addEventListener('click', () => openLightbox(btn.getAttribute('data-img-url')));
+            });
+
+            // Attach request handlers - actual AJAX call
+            document.querySelectorAll('.coa-request-btn').forEach(btn => {
+              btn.addEventListener('click', async () => {
+                const productId = btn.getAttribute('data-product-id');
+                const productTitle = btn.getAttribute('data-product-title');
+                
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+
+                try {
+                  const resp = await fetch('/apps/coa-lookup/request-coa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productId, email: customerEmail })
+                  });
+                  const result = await resp.json();
+
+                  if (resp.ok && result.success) {
+                    btn.textContent = '✅ COA Sent!';
+                  } else {
+                    btn.textContent = 'Failed - Retry';
+                    btn.disabled = false;
+                  }
+                } catch (err) {
+                  console.error('COA request error:', err);
+                  btn.textContent = 'Error - Retry';
+                  btn.disabled = false;
+                }
+              });
+            });
+
+          } else {
+            resultsContainer.innerHTML = '<p>No results found.</p>';
+          }
+        })
+        .catch(err => {
+          console.error('COA Lookup error:', err);
+          resultsContainer.innerHTML = '<p>Error performing search. Please try again later.</p>';
+        });
+    });
+  });
+</script>
+
+<style>
+  .coa-results-mobile { display: none; }
+  @media (max-width: 768px) {
+    .coa-results-desktop { display: none; }
+    .coa-results-mobile { display: block; }
+  }
+</style>
+
+{% schema %}
+{
+  "name": "COA Lookup",
+  "target": "section",
+  "stylesheet": "coa-manager.css",
+  "settings": []
+}
+{% endschema %}
