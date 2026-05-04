@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "dbb71566e1d148e989b5841b5c9b193a"
-application_url = "https://example.com"
+application_url = "https://coamngr.onrender.com"
 embedded = true
 name = "COA manager"
 
@@ -23,7 +23,7 @@ api_version = "2026-04"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ ]
+redirect_urls = [ "https://coamngr.onrender.com/auth/callback", "https://coamngr.onrender.com/auth/shopify/callback", "https://coamngr.onrender.com/api/auth/callback" ]
 
 [app_proxy]
 url = "/api"
