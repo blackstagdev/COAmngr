@@ -1,26 +1,29 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "dbb71566e1d148e989b5841b5c9b193a"
+name = "COA manager"
 application_url = "https://coamngr.onrender.com"
 embedded = true
-name = "COA manager"
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_files,write_files,read_metaobjects,write_metaobjects,read_online_store_pages,write_online_store_pages,read_product_feeds,write_product_feeds,read_product_listings,write_product_listings,read_products,write_products"
 optional_scopes = [ ]
 use_legacy_install_flow = false
-
-[webhooks]
-api_version = "2026-04"
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/uninstalled"
-  topics = [ "app/uninstalled" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
-  topics = [ "app/scopes_update" ]
 
 [auth]
 redirect_urls = [ "https://coamngr.onrender.com/auth/callback", "https://coamngr.onrender.com/auth/shopify/callback", "https://coamngr.onrender.com/api/auth/callback" ]
@@ -29,6 +32,3 @@ redirect_urls = [ "https://coamngr.onrender.com/auth/callback", "https://coamngr
 url = "/api"
 subpath = "coa-lookup"
 prefix = "apps"
-
-[build]
-automatically_update_urls_on_dev = true
