@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const openLightbox = (index) => {
     currentIndex = index;
     lightboxImg.src = imageUrls[currentIndex] || '';
+    document.body.appendChild(lightbox);
     lightbox.style.display = 'flex';
     updateNav();
   };
