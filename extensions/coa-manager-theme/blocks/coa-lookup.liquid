@@ -32,6 +32,7 @@
 
     const openLightbox = (url) => {
       lightboxImg.src = url;
+      document.body.appendChild(lightbox);
       lightbox.style.display = 'flex';
     };
 
